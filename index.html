@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A calorie tracker built around Somali food.">
+<title>Cunto Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+/* Layout: three views (sign in, profile, tracker) under one top bar; single centered column, two columns on wide screens */
+:root{
+  --bg:#f6f7fb; --surface:#ffffff; --ink:#1b2340; --muted:#5d6584;
+  --line:#dfe3ef; --accent:#2f5bd3; --spice:#b8700f; --spice-soft:#fbefd9;
+  --over:#c2410c; --chip:#eef2fc; --ok:#1f7a4d;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1426; --surface:#171e36; --ink:#e7eaf6; --muted:#9aa3c4;
+  --line:#2a3354; --accent:#7d9cff; --spice:#f0a73a; --spice-soft:#3a2c14;
+  --over:#fb8a5a; --chip:#222b4a; --ok:#5ccf93; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1426; --surface:#171e36; --ink:#e7eaf6; --muted:#9aa3c4;
+  --line:#2a3354; --accent:#7d9cff; --spice:#f0a73a; --spice-soft:#3a2c14;
+  --over:#fb8a5a; --chip:#222b4a; --ok:#5ccf93; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
+.wrap{max-width:960px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:grid;gap:28px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(2rem,6vw,3rem);font-weight:700}
+h1 span,.brand span{color:var(--spice)}
+h2{font-size:1.35rem;font-weight:700}
+h3{font-size:1.05rem;font-weight:700}
+p{margin:0}
+.lede{color:var(--muted);max-width:60ch}
+.label{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px}
+input,select,button{font:inherit;color:inherit}
+input,select{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;box-sizing:border-box;min-width:0}
+input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--surface);padding:8px 12px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:700}
+button.link{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline}
+
+/* top bar */
+.bar{border-bottom:1px solid var(--line);background:var(--surface)}
+.bar .in{max-width:960px;margin:0 auto;padding-inline:16px;padding-block:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:700;font-size:1.25rem;margin-right:auto}
+.nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav button{border:0;background:none;padding:6px 12px;border-radius:999px;color:var(--muted)}
+.nav button[aria-current="page"]{background:var(--chip);color:var(--ink);font-weight:700}
+
+/* auth */
+.auth{display:grid;grid-template-columns:1.1fr 1fr;gap:32px;align-items:center}
+@media (max-width:760px){.auth{grid-template-columns:1fr}}
+.pitch{display:grid;gap:14px}
+.pitch ul{margin:0;padding-left:1.2em;color:var(--muted);display:grid;gap:4px}
+.card{display:grid;gap:14px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--chip);border-radius:10px;padding:4px}
+.tabs button{border:0;background:none;border-radius:7px;padding:8px}
+.tabs button[aria-selected="true"]{background:var(--surface);font-weight:700}
+form.stack{display:grid;gap:12px}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:.88rem;font-weight:700}
+.hint{font-size:.82rem;color:var(--muted)}
+.err{color:var(--over);font-size:.88rem;min-height:1.2em}
+.divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* profile */
+.profile{display:grid;grid-template-columns:1fr 280px;gap:20px;align-items:start}
+@media (max-width:760px){.profile{grid-template-columns:1fr}}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media (max-width:480px){.grid2,.grid3{grid-template-columns:1fr}}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:12px}
+legend{font-family:var(--display);font-weight:700;font-size:1.05rem;margin-bottom:10px;padding:0}
+.formsec{display:grid;gap:22px}
+.hw{display:flex;gap:8px}
+.unit{display:flex;align-items:center;gap:6px;flex:1}
+.unit span{color:var(--muted);font-size:.88rem}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{display:flex;align-items:center;gap:6px;background:var(--chip);border:1px solid transparent;border-radius:999px;padding:6px 12px;cursor:pointer;font-weight:400;font-size:.92rem}
+.seg input{width:auto}
+.seg label:has(input:checked){border-color:var(--accent);color:var(--accent);font-weight:700}
+.summary{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:grid;gap:14px}
+.stat{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.stat:last-of-type{border-bottom:0}
+.stat .num{font-size:1.2rem}
+.bigkcal{font-family:var(--mono);font-size:2rem;color:var(--spice)}
+.saved{color:var(--ok);font-size:.9rem}
+
+/* tracker */
+.today{display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start}
+@media (max-width:640px){.today{grid-template-columns:1fr}}
+.ringbox{display:grid;justify-items:center;gap:10px;text-align:center}
+.ring{position:relative;width:180px;height:180px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .mid{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.ring .big{font-family:var(--mono);font-size:1.9rem}
+.goaltxt{font-size:.9rem;color:var(--muted)}
+.log{display:grid;gap:4px;min-width:0}
+.loghead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .name{min-width:0}
+.row small{color:var(--muted);display:block}
+.x{border:0;background:none;color:var(--muted);padding:4px 8px}
+.x:hover{color:var(--over)}
+.empty{color:var(--muted);padding:16px 0}
+.banner{background:var(--spice-soft);border-radius:8px;padding:8px 12px;font-size:.9rem;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.tools input{flex:1 1 220px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--chip);border:1px solid transparent;border-radius:999px;padding:6px 12px;font-size:.88rem}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700}
+.menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:14px}
+.food{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:8px}
+.food .en{color:var(--muted);font-size:.9rem}
+.food .meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.food .kcal{color:var(--spice);font-size:1.1rem}
+.food .add{display:flex;gap:6px}
+.food .add select{flex:1}
+.custom{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-top:10px}
+@media (max-width:640px){.custom{grid-template-columns:1fr 1fr}}
+.note{color:var(--muted);font-size:.9rem;max-width:65ch;margin-top:12px}
+.about p{max-width:65ch;margin:.5em 0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:.9rem}
+@media (prefers-reduced-motion:no-preference){#arc{transition:stroke-dashoffset .5s ease}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="in">
+    <div class="brand">Cunto <span>Tracker</span></div>
+    <nav class="nav" id="nav" hidden aria-label="Main">
+      <button data-go="tracker">Today</button>
+      <button data-go="profile">Profile</button>
+      <button data-go="logout">Log out</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ SIGN IN / SIGN UP ============ -->
+<main class="wrap" id="view-auth">
+  <section class="auth">
+    <div class="pitch">
+      <div class="label">Somali food calorie tracker</div>
+      <h1>Track the food you <span>actually eat</span></h1>
+      <p class="lede">Most calorie apps don't list canjeero, bariis or suqaar. Cunto Tracker starts with them.</p>
+      <ul>
+        <li>20 Somali dishes with typical serving sizes</li>
+        <li>A daily calorie goal based on your profile</li>
+        <li>Add your family's own recipes</li>
+      </ul>
+    </div>
+    <div class="panel card">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-login" aria-selected="true">Log in</button>
+        <button role="tab" id="tab-signup" aria-selected="false">Create account</button>
+      </div>
+
+      <form class="stack" id="loginForm" novalidate>
+        <div class="field"><label for="li-email">Email</label><input id="li-email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="li-pass">Password</label><input id="li-pass" type="password" autocomplete="current-password" required></div>
+        <p class="err" id="li-err" role="alert"></p>
+        <button class="primary" type="submit">Log in</button>
+      </form>
+
+      <form class="stack" id="signupForm" novalidate hidden>
+        <div class="field"><label for="su-name">First name</label><input id="su-name" autocomplete="given-name" required></div>
+        <div class="field"><label for="su-email">Email</label><input id="su-email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="su-pass">Password</label><input id="su-pass" type="password" autocomplete="new-password" required><span class="hint">At least 8 characters</span></div>
+        <div class="field"><label for="su-pass2">Confirm password</label><input id="su-pass2" type="password" autocomplete="new-password" required></div>
+        <p class="err" id="su-err" role="alert"></p>
+        <button class="primary" type="submit">Create account</button>
+      </form>
+
+      <div class="divider">or</div>
+      <button id="demoBtn">Try the demo account</button>
+      <p class="hint">Accounts are saved in this browser only. This is a portfolio demo, so don't reuse a real password.</p>
+    </div>
+  </section>
+</main>
+
+<!-- ============ PROFILE ============ -->
+<main class="wrap" id="view-profile" hidden>
+  <header>
+    <div class="label" id="pf-eyebrow">Your profile</div>
+    <h1 id="pf-title">Tell us about you</h1>
+    <p class="lede">We use this to suggest a daily calorie goal. You can change it any time.</p>
+  </header>
+  <div class="profile">
+    <form class="panel formsec" id="profileForm" novalidate>
+      <fieldset>
+        <legend>Basics</legend>
+        <div class="grid2">
+          <div class="field"><label for="pf-name">Full name</label><input id="pf-name" autocomplete="name" required></div>
+          <div class="field"><label for="pf-dob">Date of birth</label><input id="pf-dob" type="date" required></div>
+        </div>
+        <div class="field">
+          <span class="label" style="text-transform:none;letter-spacing:0;font-size:.88rem;color:var(--ink)">Sex</span>
+          <div class="seg" role="radiogroup" aria-label="Sex">
+            <label><input type="radio" name="sex" value="female" id="pf-sex-f"> Female</label>
+            <label><input type="radio" name="sex" value="male" id="pf-sex-m"> Male</label>
+          </div>
+          <span class="hint">Used only for the calorie formula.</span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Body</legend>
+        <div class="field"><label for="pf-ft">Height</label>
+          <div class="hw">
+            <div class="unit"><input id="pf-ft" type="number" min="3" max="8" inputmode="numeric" class="num" aria-label="Feet"><span>ft</span></div>
+            <div class="unit"><input id="pf-in" type="number" min="0" max="11" inputmode="numeric" class="num" aria-label="Inches"><span>in</span></div>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="pf-wt">Current weight</label><div class="unit"><input id="pf-wt" type="number" min="70" max="700" step="0.1" class="num"><span>lb</span></div></div>
+          <div class="field"><label for="pf-gwt">Goal weight <span class="hint">(optional)</span></label><div class="unit"><input id="pf-gwt" type="number" min="70" max="700" step="0.1" class="num"><span>lb</span></div></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Plan</legend>
+        <div class="field"><label for="pf-act">Activity level</label>
+          <select id="pf-act">
+            <option value="1.2">Mostly sitting (desk job, little exercise)</option>
+            <option value="1.375">Lightly active (exercise 1–3 days a week)</option>
+            <option value="1.55">Active (exercise 3–5 days a week)</option>
+            <option value="1.725">Very active (hard exercise 6–7 days a week)</option>
+          </select>
+        </div>
+        <div class="field">
+          <span class="label" style="text-transform:none;letter-spacing:0;font-size:.88rem;color:var(--ink)">Goal</span>
+          <div class="seg" role="radiogroup" aria-label="Goal">
+            <label><input type="radio" name="goal" value="lose" id="pf-g-lose"> Lose weight</label>
+            <label><input type="radio" name="goal" value="maintain" id="pf-g-keep"> Maintain</label>
+            <label><input type="radio" name="goal" value="gain" id="pf-g-gain"> Gain weight</label>
+          </div>
+        </div>
+        <div class="field"><label for="pf-kcal">Daily calorie goal</label>
+          <div class="hw"><div class="unit"><input id="pf-kcal" type="number" min="1000" max="5000" step="50" class="num"><span>kcal</span></div><button type="button" id="useSuggested">Use suggested</button></div>
+        </div>
+      </fieldset>
+
+      <p class="err" id="pf-err" role="alert"></p>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <button class="primary" type="submit" id="pf-save">Save profile</button>
+        <span class="saved" id="pf-saved" hidden>Saved</span>
+      </div>
+    </form>
+
+    <aside class="panel summary" aria-label="Your numbers">
+      <h3>Your numbers</h3>
+      <div class="stat"><span>Age</span><span class="num" id="s-age">–</span></div>
+      <div class="stat"><span>BMI</span><span class="num" id="s-bmi">–</span></div>
+      <div class="stat"><span>Daily burn (est.)</span><span class="num" id="s-tdee">–</span></div>
+      <div>
+        <div class="label">Suggested daily goal</div>
+        <div class="bigkcal" id="s-kcal">–</div>
+        <p class="hint" id="s-why">Fill in your height, weight, birth date and sex to see a suggestion.</p>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<!-- ============ TRACKER ============ -->
+<main class="wrap" id="view-tracker" hidden>
+  <header>
+    <div class="label" id="dateTxt"></div>
+    <h1 id="hello">Hi</h1>
+  </header>
+
+  <section class="panel today" aria-label="Today">
+    <div class="ringbox">
+      <div class="ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="12"/>
+          <circle id="arc" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+        </svg>
+        <div class="mid"><div class="big" id="eaten">0</div><div class="label" id="leftTxt">kcal</div></div>
+      </div>
+      <div class="goaltxt">Goal <span class="num" id="goalTxt">2,000</span> kcal · <button class="link" data-go="profile">change</button></div>
+    </div>
+    <div class="log">
+      <div class="loghead">
+        <h2>Today's log</h2>
+        <button id="clear">Clear day</button>
+      </div>
+      <div id="sampleBanner" class="banner" hidden>
+        <span>These are example entries so you can see how it works.</span>
+        <button id="startFresh">Start my own log</button>
+      </div>
+      <div id="rows"></div>
+    </div>
+  </section>
+
+  <section aria-label="Food list">
+    <h2>Somali foods</h2>
+    <div class="tools">
+      <input id="search" type="search" placeholder="Search in Somali or English (e.g. laxoox, rice)" aria-label="Search foods">
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="Filter by meal"></div>
+    <div class="menu" id="menu"></div>
+    <p class="note">Calories are estimates for a typical home serving. Portions and recipes vary a lot between families, so treat the numbers as a guide.</p>
+
+    <div class="panel" style="margin-top:12px">
+      <h3>Add your own food</h3>
+      <form class="custom" id="customForm">
+        <input id="cName" placeholder="Food name" required aria-label="Food name">
+        <input id="cKcal" type="number" min="1" max="3000" placeholder="kcal" required aria-label="Calories" class="num">
+        <input id="cServ" placeholder="Serving" aria-label="Serving size">
+        <button class="primary" type="submit">Add</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="about panel" aria-label="About">
+    <h3>About this project</h3>
+    <p>I built Cunto Tracker because the calorie apps I tried had no entries for the food I eat at home. A plate of bariis iskukaris or a morning of laxoox and shaah never showed up in search, so tracking meant guessing.</p>
+    <p>You create an account, fill in a short profile, and the app suggests a daily calorie goal. Then you log Somali dishes by serving and see your total for the day.</p>
+    <p class="label">Built by Weris Ahmed Ali · CIS, University of Northern Colorado</p>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+/* ---------- data ---------- */
+const FOODS=[
+ {id:"canjeero",so:"Canjeero / Laxoox",en:"Sourdough flatbread",meal:"Breakfast",kcal:110,unit:"1 piece"},
+ {id:"sabaayad",so:"Sabaayad",en:"Layered flatbread",meal:"Breakfast",kcal:290,unit:"1 piece"},
+ {id:"muufo",so:"Muufo",en:"Baked cornmeal bread",meal:"Breakfast",kcal:230,unit:"1 piece"},
+ {id:"malawax",so:"Malawax",en:"Thin sweet crepe",meal:"Breakfast",kcal:180,unit:"1 crepe"},
+ {id:"beer",so:"Beer iyo Basal",en:"Liver with onions",meal:"Breakfast",kcal:260,unit:"1 cup"},
+ {id:"shaah",so:"Shaah",en:"Spiced tea, milk and sugar",meal:"Drinks",kcal:120,unit:"1 cup"},
+ {id:"bariis",so:"Bariis Iskukaris",en:"Spiced rice",meal:"Lunch",kcal:350,unit:"1 cup"},
+ {id:"baasto",so:"Baasto",en:"Pasta with meat sauce",meal:"Lunch",kcal:420,unit:"1 plate (1.5 cups)"},
+ {id:"suqaar",so:"Suqaar",en:"Sautéed diced beef",meal:"Lunch",kcal:300,unit:"1 cup"},
+ {id:"hilib",so:"Hilib Ari",en:"Roasted goat meat",meal:"Lunch",kcal:240,unit:"150 g"},
+ {id:"digaag",so:"Digaag Duban",en:"Roasted chicken leg",meal:"Lunch",kcal:260,unit:"1 leg"},
+ {id:"kalluun",so:"Kalluun Shiil",en:"Fried fish",meal:"Lunch",kcal:280,unit:"1 fillet"},
+ {id:"maraq",so:"Maraq",en:"Meat and vegetable stew",meal:"Dinner",kcal:220,unit:"1 bowl"},
+ {id:"soor",so:"Soor",en:"Cornmeal porridge",meal:"Dinner",kcal:230,unit:"1 cup"},
+ {id:"cambuulo",so:"Cambuulo",en:"Adzuki beans with butter and sugar",meal:"Dinner",kcal:400,unit:"1 cup"},
+ {id:"sambuusa",so:"Sambuusa",en:"Fried meat pastry",meal:"Snacks",kcal:150,unit:"1 piece"},
+ {id:"kackac",so:"Kac Kac",en:"Fried dough",meal:"Snacks",kcal:170,unit:"1 piece"},
+ {id:"xalwo",so:"Xalwo",en:"Spiced sweet",meal:"Snacks",kcal:140,unit:"1 square"},
+ {id:"moos",so:"Moos",en:"Banana (eaten with rice)",meal:"Snacks",kcal:105,unit:"1 medium"},
+ {id:"caano",so:"Caano Geel",en:"Camel milk",meal:"Drinks",kcal:110,unit:"1 cup"}
+];
+const MEALS=["All","Breakfast","Lunch","Dinner","Snacks","Drinks"];
+const SAMPLE_LOG=[{food:"canjeero",qty:2},{food:"shaah",qty:1},{food:"bariis",qty:1},{food:"suqaar",qty:1},{food:"moos",qty:1}];
+const DEMO={email:"demo@cunto.app",pass:"cunto2026"};
+
+/* ---------- storage (this browser only) ---------- */
+const KEY="cunto-v2";
+let DB;
+try{DB=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!DB||!DB.users)DB={users:{},session:null};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(DB))}catch(e){}}
+
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=n=>Math.round(n).toLocaleString();
+function toast(t){const el=$("#toast");el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,1800)}
+const me=()=>DB.session&&DB.users[DB.session];
+
+/* passwords are salted and hashed before saving, never stored as typed */
+async function hash(pass,salt){
+  try{const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(salt+":"+pass));
+    return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("")}
+  catch(e){let h=0;for(const c of salt+pass)h=(h*31+c.charCodeAt(0))|0;return "x"+h}
+}
+const newSalt=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);
+
+/* ---------- calorie math (Mifflin-St Jeor) ---------- */
+function ageFrom(dob){if(!dob)return null;const b=new Date(dob+"T00:00"),n=new Date();
+  let a=n.getFullYear()-b.getFullYear();if(n<new Date(n.getFullYear(),b.getMonth(),b.getDate()))a--;return a}
+function numbers(p){
+  const age=ageFrom(p.dob),inches=(+p.ft||0)*12+(+p.inch||0),lb=+p.wt||0;
+  const out={age,bmi:null,tdee:null,kcal:null};
+  if(inches>0&&lb>0)out.bmi=703*lb/(inches*inches);
+  if(age&&inches&&lb&&p.sex){
+    const bmr=10*lb*0.4536+6.25*inches*2.54-5*age+(p.sex==="male"?5:-161);
+    out.tdee=bmr*(+p.act||1.2);
+    const adj={lose:-500,maintain:0,gain:300}[p.goal||"maintain"];
+    const floor=p.sex==="male"?1500:1200;
+    out.kcal=Math.max(floor,Math.round((out.tdee+adj)/50)*50);
+  }
+  return out;
+}
+const bmiLabel=b=>b<18.5?"underweight range":b<25?"healthy range":b<30?"overweight range":"obese range";
+
+/* ---------- views ---------- */
+function show(view){
+  const u=me();
+  if(!u)view="auth";
+  else if(view!=="profile"&&!u.profile.done)view="profile";
+  for(const v of["auth","profile","tracker"])$("#view-"+v).hidden=v!==view;
+  $("#nav").hidden=!u;
+  document.querySelectorAll("#nav button").forEach(b=>b.setAttribute("aria-current",b.dataset.go===view?"page":"false"));
+  if(view==="profile")renderProfile();
+  if(view==="tracker"){renderToday();renderChips();renderMenu()}
+  window.scrollTo(0,0);
+}
+
+/* ---------- auth ---------- */
+function setTab(t){
+  $("#tab-login").setAttribute("aria-selected",t==="login");
+  $("#tab-signup").setAttribute("aria-selected",t==="signup");
+  $("#loginForm").hidden=t!=="login";$("#signupForm").hidden=t!=="signup";
+  $("#li-err").textContent=$("#su-err").textContent="";
+}
+$("#tab-login").onclick=()=>setTab("login");
+$("#tab-signup").onclick=()=>setTab("signup");
+
+async function createUser(email,pass,name,extra={}){
+  const salt=newSalt();
+  DB.users[email]={salt,hash:await hash(pass,salt),goal:2000,custom:[],
+    log:{date:today(),items:SAMPLE_LOG.map(x=>({...x}))},sample:true,
+    profile:{name,act:"1.375",goal:"maintain",done:false,...extra}};
+}
+$("#signupForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const name=$("#su-name").value.trim(),email=$("#su-email").value.trim().toLowerCase(),
+        p1=$("#su-pass").value,p2=$("#su-pass2").value,err=$("#su-err");
+  if(!name)return err.textContent="Enter your first name.";
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return err.textContent="Enter a valid email address, like name@example.com.";
+  if(DB.users[email])return err.textContent="An account with this email already exists. Log in instead.";
+  if(p1.length<8)return err.textContent="Password must be at least 8 characters.";
+  if(p1!==p2)return err.textContent="The passwords don't match.";
+  await createUser(email,p1,name);
+  DB.session=email;save();e.target.reset();toast("Account created");show("profile");
+});
+$("#loginForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const email=$("#li-email").value.trim().toLowerCase(),pass=$("#li-pass").value,u=DB.users[email];
+  if(!u||u.hash!==await hash(pass,u.salt))return $("#li-err").textContent="Email or password is incorrect.";
+  DB.session=email;save();e.target.reset();show("tracker");
+});
+$("#demoBtn").onclick=async()=>{
+  if(!DB.users[DEMO.email]){
+    await createUser(DEMO.email,DEMO.pass,"Hodan Abdi",{dob:"1999-04-12",sex:"female",ft:"5",inch:"5",wt:"150",gwt:"140",act:"1.375",goal:"lose",done:true});
+    const u=DB.users[DEMO.email];u.goal=numbers(u.profile).kcal;
+  }
+  DB.session=DEMO.email;save();show("tracker");
+};
+
+/* ---------- profile ---------- */
+const PF={name:"#pf-name",dob:"#pf-dob",ft:"#pf-ft",inch:"#pf-in",wt:"#pf-wt",gwt:"#pf-gwt",act:"#pf-act"};
+function readForm(){
+  const p={};for(const k in PF)p[k]=$(PF[k]).value.trim();
+  p.sex=(document.querySelector('input[name="sex"]:checked')||{}).value||"";
+  p.goal=(document.querySelector('input[name="goal"]:checked')||{}).value||"maintain";
+  return p;
+}
+function renderProfile(){
+  const u=me(),p=u.profile;
+  $("#pf-title").textContent=p.done?"Your profile":`Welcome, ${p.name.split(" ")[0]}`;
+  $("#pf-eyebrow").textContent=p.done?"Account · "+DB.session:"Step 2 of 2 · Profile";
+  $("#pf-save").textContent=p.done?"Save profile":"Save and start tracking";
+  for(const k in PF)$(PF[k]).value=p[k]??"";
+  document.querySelectorAll('input[name="sex"]').forEach(r=>r.checked=r.value===p.sex);
+  document.querySelectorAll('input[name="goal"]').forEach(r=>r.checked=r.value===(p.goal||"maintain"));
+  $("#pf-kcal").value=u.goal;
+  $("#pf-dob").max=today();
+  $("#pf-err").textContent="";$("#pf-saved").hidden=true;
+  updateSummary();
+}
+function updateSummary(){
+  const n=numbers(readForm());
+  $("#s-age").textContent=n.age!=null&&n.age>=0?n.age:"–";
+  $("#s-bmi").textContent=n.bmi?n.bmi.toFixed(1):"–";
+  $("#s-bmi").title=n.bmi?bmiLabel(n.bmi):"";
+  $("#s-tdee").textContent=n.tdee?fmt(n.tdee)+" kcal":"–";
+  $("#s-kcal").textContent=n.kcal?fmt(n.kcal)+" kcal":"–";
+  $("#s-why").textContent=n.kcal
+    ?`Based on your daily burn, ${{lose:"minus 500 kcal to lose about 1 lb a week",maintain:"to keep your weight steady",gain:"plus 300 kcal to gain slowly"}[readForm().goal]}.`
+    :"Fill in your height, weight, birth date and sex to see a suggestion.";
+  return n;
+}
+$("#profileForm").addEventListener("input",()=>{updateSummary();$("#pf-saved").hidden=true});
+$("#useSuggested").onclick=()=>{const n=updateSummary();if(n.kcal)$("#pf-kcal").value=n.kcal;else $("#pf-err").textContent="Fill in your height, weight, birth date and sex first."};
+$("#profileForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const p=readForm(),err=$("#pf-err"),age=ageFrom(p.dob),inches=(+p.ft||0)*12+(+p.inch||0);
+  if(!p.name)return err.textContent="Enter your name.";
+  if(!p.dob||age==null||age<0)return err.textContent="Enter your date of birth.";
+  if(age<18)return err.textContent="Cunto Tracker's calorie goals are for adults 18 and older.";
+  if(!p.sex)return err.textContent="Choose a sex so we can use the calorie formula.";
+  if(inches<36||inches>96)return err.textContent="Enter your height in feet and inches, for example 5 ft 5 in.";
+  if(!(+p.wt>=70&&+p.wt<=700))return err.textContent="Enter your current weight in pounds.";
+  const kcal=parseInt($("#pf-kcal").value,10);
+  const u=me(),first=!u.profile.done;
+  u.profile={...p,done:true};
+  u.goal=kcal>=1000&&kcal<=5000?kcal:(numbers(p).kcal||2000);
+  save();err.textContent="";
+  if(first){toast("Profile saved");show("tracker")}else{$("#pf-saved").hidden=false;renderProfile();$("#pf-saved").hidden=false}
+});
+
+/* ---------- tracker ---------- */
+let filter="All",query="";
+const all=()=>FOODS.concat(me().custom);
+const find=id=>all().find(f=>f.id===id);
+function dayLog(){const u=me();if(u.log.date!==today()){u.log={date:today(),items:[]};u.sample=false;save()}return u.log.items}
+
+function renderToday(){
+  const u=me(),items=dayLog();
+  const rows=items.map((e,i)=>({e,i,f:find(e.food)})).filter(r=>r.f);
+  const total=rows.reduce((s,r)=>s+r.f.kcal*r.e.qty,0),left=u.goal-total;
+  $("#hello").textContent="Hi, "+u.profile.name.split(" ")[0];
+  $("#dateTxt").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+  $("#eaten").textContent=fmt(total);
+  $("#leftTxt").textContent=left>=0?`${fmt(left)} kcal left`:`${fmt(-left)} kcal over`;
+  $("#goalTxt").textContent=fmt(u.goal);
+  const arc=$("#arc"),C=326.7;
+  arc.style.strokeDashoffset=C*(1-Math.min(total/u.goal,1));
+  arc.setAttribute("stroke",left<0?"var(--over)":"var(--accent)");
+  $("#sampleBanner").hidden=!u.sample;
+  $("#rows").innerHTML=rows.length?rows.map(r=>`
+    <div class="row"><div class="name"><strong>${esc(r.f.so)}</strong><small>${r.e.qty} × ${esc(r.f.unit)}</small></div>
+    <span class="num">${fmt(r.f.kcal*r.e.qty)} kcal</span>
+    <button class="x" data-del="${r.i}" aria-label="Remove ${esc(r.f.so)}">✕</button></div>`).join("")
+    :`<p class="empty">Nothing logged yet. Pick a food below and press Add.</p>`;
+}
+function renderChips(){
+  $("#chips").innerHTML=MEALS.map(m=>`<button class="chip" aria-pressed="${m===filter}" data-meal="${m}">${m}</button>`).join("");
+}
+function renderMenu(){
+  const q=query.toLowerCase();
+  const list=all().filter(f=>(filter==="All"||f.meal===filter)&&(!q||(f.so+" "+f.en).toLowerCase().includes(q)));
+  $("#menu").innerHTML=list.length?list.map(f=>`
+    <article class="food">
+      <div><h3>${esc(f.so)}</h3><div class="en">${esc(f.en)}</div></div>
+      <div class="meta"><span class="label">${esc(f.unit)}</span><span class="num kcal">${f.kcal} kcal</span></div>
+      <div class="add">
+        <select id="q-${esc(f.id)}" aria-label="Servings of ${esc(f.so)}">
+          ${[0.5,1,1.5,2,3].map(n=>`<option value="${n}"${n===1?" selected":""}>${n} serving${n===1?"":"s"}</option>`).join("")}
+        </select>
+        <button class="primary" data-add="${esc(f.id)}">Add</button>
+      </div>
+    </article>`).join(""):`<p class="empty">No foods match "${esc(query)}". Add it as your own food below.</p>`;
+}
+function dropSample(){const u=me();if(u.sample){u.sample=false;u.log.items=[]}}
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.go==="logout"){DB.session=null;save();setTab("login");show("auth");toast("Logged out")}
+  else if(t.dataset.go)show(t.dataset.go);
+  else if(t.dataset.add){const id=t.dataset.add,qty=parseFloat(document.getElementById("q-"+id).value);
+    dropSample();dayLog().push({food:id,qty});save();renderToday();toast(`Added ${find(id).so}`)}
+  else if(t.dataset.del!==undefined){dayLog().splice(+t.dataset.del,1);save();renderToday()}
+  else if(t.dataset.meal){filter=t.dataset.meal;renderChips();renderMenu()}
+  else if(t.id==="clear"||t.id==="startFresh"){me().log.items=[];me().sample=false;save();renderToday();toast("Log cleared")}
+});
+$("#search").addEventListener("input",e=>{query=e.target.value.trim();renderMenu()});
+$("#customForm").addEventListener("submit",e=>{e.preventDefault();
+  const name=$("#cName").value.trim(),kcal=parseInt($("#cKcal").value,10);if(!name||!kcal)return;
+  me().custom.push({id:"c"+Date.now(),so:name,en:"Your food",meal:"Snacks",kcal,unit:$("#cServ").value.trim()||"1 serving"});
+  save();e.target.reset();renderMenu();toast(`${name} added to the list`)});
+
+show(me()?"tracker":"auth");
+</script>
+</body>
+</html>
